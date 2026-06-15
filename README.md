@@ -13,10 +13,10 @@ Nagios Alert
 nagios_sim_v2.py          ← Simulator (test) hoặc Nagios thật
      │  POST /webhook/nagios
      ▼
-sre_agent_v2.py           ← Agent xử lý, query Grafana, phân tích
+agent.py           ← Agent xử lý, query Grafana, phân tích
      │  GET /api/history
      ▼
-sre_dashboard.html        ← Dashboard hiển thị realtime trên browser
+dashboard.html        ← Dashboard hiển thị realtime trên browser
 ```
 
 ---
@@ -24,10 +24,10 @@ sre_dashboard.html        ← Dashboard hiển thị realtime trên browser
 ## Cấu trúc file
 
 ```
-sre-agent/
-├── sre_agent_v2.py       # Agent chính — Flask API
+agent/
+├── agent_v2.py       # Agent chính — Flask API
 ├── nagios_sim_v2.py      # Simulator — test gửi alert
-├── sre_dashboard.html    # Dashboard UI
+├── dashboard.html    # Dashboard UI
 ├── requirements.txt      # Python dependencies
 ├── Dockerfile
 ├── docker-compose.yml
@@ -103,7 +103,7 @@ docker compose logs -f
 python -m http.server 8080
 ```
 
-Mở browser vào: `http://localhost:8080/sre_dashboard.html`
+Mở browser vào: `http://localhost:8080/dashboard.html`
 
 Dashboard tự poll agent mỗi 15 giây — không cần refresh tay.
 
@@ -138,27 +138,27 @@ Paste nhiều alert cùng lúc cũng được — simulator tự tách từng ob
 
 **DISK:**
 ```json
-{"Nagios Alert":"Notification Type: PROBLEM Service: fs_/ Host: Dev-App-501.64 Address: 10.50.1.64 State: WARNING Date/Time: Sat Jun 13 16:43:53 ICT 2026 Additional Info: WARN - 97.5% used (530.78 of 544.4 GB)"}
+{"Nagios Alert":"Notification Type: PROBLEM Service: fs_/ Host: TEST_server1 Address: 10.50.1.64 State: WARNING Date/Time: Sat Jun 13 16:43:53 ICT 2026 Additional Info: WARN - 97.5% used (530.78 of 544.4 GB)"}
 ```
 
 **RAM:**
 ```json
-{"Nagios Alert":"Notification Type: PROBLEM Service: Memory used Host: Data-App-637.33 Address: 10.60.37.33 State: CRITICAL Date/Time: Sat Jun 13 14:51:42 ICT 2026 Additional Info: CRIT - 126.81 GB used (this is 100.9% of 125.63 GB RAM), critical at 100.0%"}
+{"Nagios Alert":"Notification Type: PROBLEM Service: Memory used Host: TEST_server12 Address: 10.50.1.33 State: CRITICAL Date/Time: Sat Jun 13 14:51:42 ICT 2026 Additional Info: CRIT - 126.81 GB used (this is 100.9% of 125.63 GB RAM), critical at 100.0%"}
 ```
 
 **CPU:**
 ```json
-{"Nagios Alert":"Notification Type: PROBLEM Service: CPU load Host: MEP-App-532.44 Address: 10.50.32.44 State: WARNING Date/Time: Thu Jun 11 10:17:27 ICT 2026 Additional Info: WARN - 15min load 599.55 at 40 CPUs, (warning level at 10.00)"}
+{"Nagios Alert":"Notification Type: PROBLEM Service: CPU load Host: TEST_server3 Address: 10.50.1.44 State: WARNING Date/Time: Thu Jun 11 10:17:27 ICT 2026 Additional Info: WARN - 15min load 599.55 at 40 CPUs, (warning level at 10.00)"}
 ```
 
 **HOST DOWN:**
 ```json
-{"Nagios Alert":"PROBLEM Host: PTO-Zalopay-App-437-15 State: DOWN Address: 10.40.37.15 Info: CRITICAL - Socket timeout after 10 seconds Date/Time: Fri Jun 12 11:18:41 ICT 2026"}
+{"Nagios Alert":"PROBLEM Host: TEST_server4 State: DOWN Address: 10.50.1.15 Info: CRITICAL - Socket timeout after 10 seconds Date/Time: Fri Jun 12 11:18:41 ICT 2026"}
 ```
 
 **RECOVERY:**
 ```json
-{"Nagios Alert":"Notification Type: RECOVERY Service: fs_/ Host: Dev-App-501.64 Address: 10.50.1.64 State: OK Additional Info: OK - 61.0% used"}
+{"Nagios Alert":"Notification Type: RECOVERY Service: fs_/ Host:TEST_server5 Address: 10.50.1.64 State: OK Additional Info: OK - 61.0% used"}
 ```
 
 ### Các flag của simulator
@@ -306,7 +306,7 @@ Thay đổi trong `.env` — không cần sửa code, không cần rebuild image
 
 **Agent không start:**
 ```bash
-docker compose logs sre-agent
+docker compose logs agent
 # Thường do thiếu biến trong .env
 ```
 
