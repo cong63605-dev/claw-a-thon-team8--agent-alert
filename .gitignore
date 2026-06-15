@@ -1,0 +1,13 @@
+# Secret — KHÔNG commit lên git
+.env
+.env.agentbase
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Docker
+*.log.agentbase/
+.agentbase/

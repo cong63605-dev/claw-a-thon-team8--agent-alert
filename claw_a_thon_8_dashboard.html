@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claw a Thon- agent analysz alert</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  :root {
+    --bg:       #0d1117;
+    --bg2:      #161b22;
+    --bg3:      #21262d;
+    --border:   #30363d;
+    --text:     #e6edf3;
+    --muted:    #7d8590;
+    --green:    #3fb950;
+    --yellow:   #e3b341;
+    --orange:   #f78166;
+    --red:      #f85149;
+    --blue:     #58a6ff;
+    --purple:   #bc8cff;
+    --font:     'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; height: 100%; }
+  a { color: var(--blue); text-decoration: none; }
+
+  /* Layout */
+  .shell { display: grid; grid-template-rows: 48px 1fr; height: 100vh; }
+  .topbar {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 20px; gap: 16px;
+  }
+  .topbar .logo { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: 0.05em; }
+  .topbar .logo span { color: var(--green); }
+  .topbar .spacer { flex: 1; }
+  .topbar .badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3);
+  }
+  .topbar .badge.warn { background: rgba(227,179,65,0.15); color: var(--yellow); border-color: rgba(227,179,65,0.3); }
+  .topbar .badge.crit { background: rgba(248,81,73,0.15); color: var(--red); border-color: rgba(248,81,73,0.3); }
+  .main { display: grid; grid-template-columns: 340px 1fr; overflow: hidden; }
+
+  /* Left panel — alert list */
+  .panel-left { background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .panel-header h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); flex: 1; }
+  .alert-list { flex: 1; overflow-y: auto; }
+  .alert-item {
+    padding: 10px 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background 0.1s; display: flex; gap: 10px; align-items: flex-start;
+  }
+  .alert-item:hover { background: var(--bg3); }
+  .alert-item.active { background: rgba(88,166,255,0.08); border-left: 2px solid var(--blue); }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .dot-green  { background: var(--green); }
+  .dot-yellow { background: var(--yellow); }
+  .dot-orange { background: var(--orange); }
+  .dot-red    { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .alert-meta { flex: 1; min-width: 0; }
+  .alert-host { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .alert-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+
+
+
+  /* Right panel — detail */
+  .panel-right { overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); gap: 12px; }
+  .empty-state i { font-size: 40px; }
+  .empty-state p { font-size: 13px; }
+
+  /* Cards */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; }
+
+  /* Severity banner */
+  .sev-banner {
+    border-radius: 8px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .sev-banner.green  { background: rgba(63,185,80,0.1);  border: 1px solid rgba(63,185,80,0.3); }
+  .sev-banner.yellow { background: rgba(227,179,65,0.1); border: 1px solid rgba(227,179,65,0.3); }
+  .sev-banner.orange { background: rgba(247,129,102,0.1);border: 1px solid rgba(247,129,102,0.3); }
+  .sev-banner.red    { background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.4); }
+  .sev-score { font-size: 36px; font-weight: 700; min-width: 56px; text-align: center; }
+  .sev-info  { flex: 1; }
+  .sev-label { font-size: 15px; font-weight: 600; }
+  .sev-host  { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .sev-decision { font-size: 11px; margin-top: 6px; font-family: var(--font); }
+
+  /* Metrics row */
+  .metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .metric-cell { background: var(--bg3); border-radius: 6px; padding: 10px 12px; }
+  .metric-label { font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+  .metric-val   { font-size: 18px; font-weight: 700; }
+  .val-green  { color: var(--green); }
+  .val-yellow { color: var(--yellow); }
+  .val-orange { color: var(--orange); }
+  .val-red    { color: var(--red); }
+
+  /* Sparkline */
+  .sparkline-row { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+  .spark-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 3px; transition: background 0.2s; }
+  .spark-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: var(--muted); }
+  .trend-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+  .trend-badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+  }
+  .eta-box {
+    flex: 1; background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.3);
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; color: var(--red);
+  }
+  .eta-box.safe { background: rgba(63,185,80,0.08); border-color: rgba(63,185,80,0.25); color: var(--green); }
+
+  /* Diagnosis */
+  .diagnosis-text { font-size: 13px; line-height: 1.7; color: var(--text); }
+
+  /* Lists */
+  .hyp-list, .action-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .hyp-list li { display: flex; gap: 8px; font-size: 12px; color: var(--muted); }
+  .hyp-list li::before { content: '?'; color: var(--yellow); font-weight: 700; flex-shrink: 0; }
+  .action-list li { display: flex; gap: 8px; font-size: 12px; align-items: flex-start; }
+  .action-list li::before { content: '$'; color: var(--green); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+  .cmd {
+    font-family: var(--font); background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-size: 11px; color: var(--blue); cursor: pointer;
+    word-break: break-all; flex: 1;
+  }
+  .cmd:hover { border-color: var(--blue); }
+  .copy-btn {
+    background: none; border: 1px solid var(--border); border-radius: 4px; padding: 3px 7px;
+    color: var(--muted); font-family: var(--font); font-size: 11px; cursor: pointer; flex-shrink: 0;
+  }
+  .copy-btn:hover { color: var(--green); border-color: var(--green); }
+  .recheck-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 6px; font-family: var(--fn); font-size: 12px;
+    cursor: pointer; border: 1px solid rgba(88,166,255,.5); background: rgba(88,166,255,.08);
+    color: var(--bl); transition: all .15s; font-weight: 600;
+  }
+  .recheck-btn:hover { background: rgba(88,166,255,.18); border-color: var(--bl); }
+  .recheck-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .recheck-btn.spinning { animation: pulse 1s ease-in-out infinite; }
+  .recheck-result {
+    border-radius: 6px; padding: 8px 14px; font-size: 12px; margin-top: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .recheck-result.ok   { background: rgba(63,185,80,.1);  border: 1px solid rgba(63,185,80,.3);  color: var(--green); }
+  .recheck-result.warn { background: rgba(248,81,73,.1);  border: 1px solid rgba(248,81,73,.3);  color: var(--red); }
+  .recheck-result.err  { background: rgba(227,179,65,.1); border: 1px solid rgba(227,179,65,.3); color: var(--yellow); }
+  .countdown-pill {
+    font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    background: rgba(63,185,80,.15); color: var(--green);
+    border: 1px solid rgba(63,185,80,.3); margin-left: 4px;
+    display: inline-block; font-variant-numeric: tabular-nums;
+  }
+  .alert-item.fading-out {
+    transition: opacity .8s ease, max-height .6s ease, padding .6s ease;
+    opacity: 0 !important; max-height: 0 !important;
+    padding-top: 0 !important; padding-bottom: 0 !important;
+    overflow: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .loading-pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; padding: 2px 7px; border-radius: 12px;
+    border: 1px solid var(--border); color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<h2 class="sr-only" style="position:absolute;left:-9999px;">Claw a Thon - Agent Analysis Dashboard</h2>
+
+<div class="shell">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <span class="logo">Agents<span>OPS</span></span>
+    <span style="color:var(--muted);font-size:11px;">ZaloPay Infrastructure</span>
+    <div class="spacer"></div>
+    <span id="status-badge" class="badge">● AGENT ONLINE</span>
+    <span id="alert-count-badge" class="badge warn" style="display:none;"></span>
+    <span style="color:var(--muted);font-size:11px;" id="clock"></span>
+  </div>
+
+  <div class="main">
+    <!-- LEFT: Alert list -->
+    <div class="panel-left">
+      <div class="panel-header">
+        <h2>Alert feed</h2>
+        <span id="total-count" style="font-size:11px;color:var(--muted);">0 alerts</span>
+      </div>
+      <div class="alert-list" id="alert-list">
+        <div style="padding:24px 16px;text-align:center;color:var(--muted);">
+          <i class="ti ti-radar-2" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+          <span style="font-size:11px;">Waiting for alerts from Nagios...</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Detail panel -->
+    <div class="panel-right" id="detail-panel">
+      <div class="empty-state">
+        <i class="ti ti-terminal-2" aria-hidden="true"></i>
+        <p>Select an alert to see the full Agent analysis</p>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000';
+let alerts = [];
+let selectedIdx = null;
+
+function clock() {
+  document.getElementById('clock').textContent = new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+clock(); setInterval(clock, 1000);
+
+function severityColor(sev) {
+  if (!sev) return 'green';
+  const c = sev.color || 'green';
+  return c === 'yellow' ? 'yellow' : c === 'orange' ? 'orange' : c === 'red' ? 'red' : 'green';
+}
+
+function dotClass(sev) {
+  const c = severityColor(sev);
+  return `dot-${c}`;
+}
+
+function valClass(pct) {
+  if (pct >= 90) return 'val-red';
+  if (pct >= 75) return 'val-orange';
+  if (pct >= 60) return 'val-yellow';
+  return 'val-green';
+}
+
+function relTime(ts) {
+  if (!ts) return '';
+  const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (diff < 60)  return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return `${Math.floor(diff/3600)}h ago`;
+}
+
+function renderAlertList() {
+  const list = document.getElementById('alert-list');
+  const total = document.getElementById('total-count');
+  const countBadge = document.getElementById('alert-count-badge');
+
+  if (!alerts.length) {
+    list.innerHTML = `<div style="padding:24px 16px;text-align:center;color:var(--muted);">
+      <i class="ti ti-radar-2" style="font-size:28px;display:block;margin-bottom:8px;"></i>
+      <span style="font-size:11px;">Waiting for alerts...</span></div>`;
+    total.textContent = '0 alerts';
+    countBadge.style.display = 'none';
+    return;
+  }
+
+  const critCount = alerts.filter(a => a.severity && a.severity.score >= 80).length;
+  total.textContent = `${alerts.length} alert${alerts.length !== 1 ? 's' : ''}`;
+  if (critCount > 0) {
+    countBadge.style.display = '';
+    countBadge.textContent = `${critCount} CRIT`;
+    countBadge.className = 'badge crit';
+  } else {
+    countBadge.style.display = 'none';
+  }
+
+  list.innerHTML = alerts.map((a, i) => {
+    const isRecovered = a.status === 'RECOVERED';
+    const isRecoveryEvt = a.is_recovery === true;
+    const color = isRecovered || isRecoveryEvt ? 'green' : severityColor(a.severity);
+    const score = a.severity ? a.severity.score : 0;
+    const type  = a.alert_type || 'UNKNOWN';
+    const host  = a.host || a.target_ip || 'Unknown';
+    const dec   = a.decision || a.message || '';
+    const active = i === selectedIdx ? 'active' : '';
+    const opacity = isRecovered ? 'opacity:0.5;' : '';
+    const recovTag = isRecoveryEvt ? ' · ✓ REC' : isRecovered ? ' · recovered' : '';
+    const cdPill   = isRecovered && a.alert_id
+      ? `<span class="countdown-pill" id="cd-${a.alert_id}">removing in 10s</span>`
+      : '';
+    return `<div class="alert-item ${active}" onclick="selectAlert(${i})" style="${opacity}">
+      <div class="alert-dot ${isRecovered || isRecoveryEvt ? 'dot-green' : dotClass(a.severity)}"></div>
+      <div class="alert-meta">
+        <div class="alert-host">${host}</div>
+        <div class="alert-sub">${type} · ${dec.replace(/_/g,' ')}${recovTag}${cdPill}</div>
+      </div>
+      <div class="alert-time">${score > 0 && !isRecoveryEvt ? score : isRecoveryEvt ? '✓' : '–'}<br>${relTime(a.timestamp)}</div>
+    </div>`;
+  }).join('');
+}
+
+function sparkColor(pct) {
+  if (pct >= 90) return 'var(--red)';
+  if (pct >= 75) return 'var(--orange)';
+  if (pct >= 60) return 'var(--yellow)';
+  return 'var(--green)';
+}
+
+function buildSparkline(samples) {
+  if (!samples) return '<span style="color:var(--muted);font-size:11px;">No trend data</span>';
+  const keys  = ['7d','24h','6h','1h','now'];
+  const vals  = keys.map(k => samples[k] ?? null).filter(v => v !== null);
+  const max   = Math.max(...vals, 1);
+  const bars  = keys.map(k => {
+    const v = samples[k];
+    if (v === null || v === undefined) return `<div class="spark-bar" style="background:var(--border);height:4px;"></div>`;
+    const h = Math.max(4, Math.round((v / max) * 40));
+    return `<div class="spark-bar" style="height:${h}px;background:${sparkColor(v)};"></div>`;
+  });
+  const labels = keys.map(k => {
+    const v = samples[k];
+    return `<span>${v !== null && v !== undefined ? v.toFixed(0)+'%' : '–'}</span>`;
+  });
+  return `<div class="sparkline-row">${bars.join('')}</div>
+    <div class="spark-labels">${labels.join('')}</div>
+    <div class="spark-labels" style="margin-top:2px;font-size:9px;">
+      <span>7d</span><span>24h</span><span>6h</span><span>1h</span><span>now</span>
+    </div>`;
+}
+
+function buildActions(actions, ip) {
+  if (!actions || !actions.length) return '<p style="color:var(--muted);font-size:12px;">No actions.</p>';
+  return `<ul class="action-list">${actions.map(a => {
+    const isCmd = a.startsWith('ssh') || a.startsWith('docker') || a.startsWith('ping') || a.startsWith('find') || a.startsWith('cat') || a.includes('&& ') || a.includes('|') || a.includes('.sh');
+    if (isCmd) {
+      return `<li><div class="cmd" title="Click to copy" onclick="copyCmd(this)">${a}</div>
+        <button class="copy-btn" onclick="copyCmd(this.previousElementSibling)" title="Copy">
+          <i class="ti ti-copy" aria-hidden="true"></i>
+        </button></li>`;
+    }
+    return `<li><span style="flex:1;color:var(--muted);">${a}</span></li>`;
+  }).join('')}</ul>`;
+}
+
+function copyCmd(el) {
+  navigator.clipboard.writeText(el.textContent.trim()).then(() => {
+    el.style.color = 'var(--green)';
+    setTimeout(() => el.style.color = '', 1000);
+  });
+}
+
+function selectAlert(idx) {
+  selectedIdx = idx;
+  renderAlertList();
+  renderDetail(alerts[idx]);
+}
+
+function renderDetail(a) {
+  const panel = document.getElementById('detail-panel');
+  if (!a) { panel.innerHTML = '<div class="empty-state"><i class="ti ti-terminal-2"></i><p>No data</p></div>'; return; }
+
+  // ── RECOVERY event: show dedicated card ──────────────────────────────
+  if (a.is_recovery) {
+    const verified = a.grafana_verified;
+    const metricStr = a.current_metric_pct !== null && a.current_metric_pct !== undefined
+      ? `${a.current_metric_pct}%` : 'N/A';
+    panel.innerHTML = `
+      <div class="sev-banner green" style="background:rgba(63,185,80,.12);border:1px solid rgba(63,185,80,.4);">
+        <div class="sev-score" style="color:var(--green);font-size:36px;">✓</div>
+        <div class="sev-info">
+          <div class="sev-label" style="color:var(--green);">RECOVERED 🟢</div>
+          <div class="sev-host">${a.host || 'Unknown'} · ${a.target_ip || ''}${a.mountpoint ? ' · '+a.mountpoint : ''}</div>
+          <div class="sev-decision">${(a.decision||'').replace(/_/g,' ')}</div>
+        </div>
+        <div style="text-align:right;font-size:10px;color:var(--muted);">${a.alert_type}<br>${a.timestamp ? a.timestamp.slice(11,19)+' UTC' : ''}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Recovery verification</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <div class="metric-cell"><div class="metric-label">Grafana check</div><div class="metric-val ${verified ? 'val-green' : 'val-orange'}">${verified ? 'VERIFIED ✓' : 'UNVERIFIED'}</div></div>
+          <div class="metric-cell"><div class="metric-label">Current metric</div><div class="metric-val val-green">${metricStr}</div></div>
+          <div class="metric-cell"><div class="metric-label">Original alert</div><div class="metric-val" style="font-size:11px;">${a.original_alert_id || 'Not matched'}</div></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Diagnosis</div><p class="diagnosis-text">${a.diagnosis || ''}</p></div>
+    `;
+    return;
+  }
+
+  // ── RECOVERED status banner (injected on existing PROBLEM alert) ──────
+  const recoveryBanner = a.status === 'RECOVERED' ? `
+    <div style="background:rgba(63,185,80,.08);border:1px solid rgba(63,185,80,.3);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+      <span style="color:var(--green);font-size:18px;">✓</span>
+      <div>
+        <div style="color:var(--green);font-size:13px;font-weight:600;">This alert has been recovered</div>
+        <div style="font-size:11px;color:var(--muted);">Verified at ${a.recovered_at || ''}  ·  Metric dropped to ${a.recovery_metric !== null ? a.recovery_metric+'%' : 'N/A'}</div>
+      </div>
+    </div>` : '';
+
+  const color = severityColor(a.severity);
+  const score = a.severity ? a.severity.score : 0;
+  const label = a.severity ? a.severity.label : 'UNKNOWN';
+  const m = a.metrics || {};
+  const trend = a.trend || {};
+  const samples = trend.samples || {};
+
+  const mainPct = m.current_used_pct ?? m.current_cpu_pct ?? null;
+  const totalGB  = m.total_ram_gb  ?? m.total_disk_gb  ?? null;
+  const usedGB   = m.current_used_ram_gb ?? m.current_used_disk_gb ?? null;
+  const availGB  = m.available_ram_gb    ?? m.available_disk_gb    ?? null;
+  const pastGB   = m.baseline_7d_used_gb ?? null;
+  const growth   = m.growth_ratio ?? null;
+
+  const isEtaDanger = trend.eta_critical && !trend.eta_critical.includes('Không') && !trend.eta_critical.includes('tăng');
+
+  const metricsCards = [];
+  if (mainPct !== null && mainPct !== undefined) {
+    metricsCards.push(`<div class="metric-cell"><div class="metric-label">Used now</div><div class="metric-val ${valClass(mainPct)}">${mainPct.toFixed(1)}%</div></div>`);
+  }
+  if (totalGB) metricsCards.push(`<div class="metric-cell"><div class="metric-label">Total</div><div class="metric-val">${totalGB} GB</div></div>`);
+  if (usedGB)  metricsCards.push(`<div class="metric-cell"><div class="metric-label">Used</div><div class="metric-val ${valClass(mainPct)}">${usedGB} GB</div></div>`);
+  if (availGB) metricsCards.push(`<div class="metric-cell"><div class="metric-label">Free</div><div class="metric-val val-green">${availGB} GB</div></div>`);
+  if (pastGB)  metricsCards.push(`<div class="metric-cell"><div class="metric-label">7d baseline</div><div class="metric-val">${pastGB} GB</div></div>`);
+  if (growth)  metricsCards.push(`<div class="metric-cell"><div class="metric-label">Growth ×</div><div class="metric-val ${growth >= 2 ? 'val-red' : growth >= 1.5 ? 'val-orange' : 'val-green'}">${growth.toFixed(2)}×</div></div>`);
+
+  if (a.alert_type === 'CPU') {
+    const cpu = m.current_cpu_pct ?? null;
+    if (cpu !== null && !metricsCards.length) {
+      metricsCards.push(`<div class="metric-cell"><div class="metric-label">CPU now</div><div class="metric-val ${valClass(cpu)}">${cpu.toFixed(1)}%</div></div>`);
+    }
+    const lpc = m.load_per_core; const cores = m.system_cores;
+    if (lpc) metricsCards.push(`<div class="metric-cell"><div class="metric-label">Load/core</div><div class="metric-val ${lpc > 2 ? 'val-red' : 'val-yellow'}">${lpc.toFixed(2)}</div></div>`);
+    if (cores) metricsCards.push(`<div class="metric-cell"><div class="metric-label">Cores</div><div class="metric-val">${cores}</div></div>`);
+    if (m.baseline_7d_cpu_pct) metricsCards.push(`<div class="metric-cell"><div class="metric-label">7d baseline</div><div class="metric-val">${m.baseline_7d_cpu_pct.toFixed(1)}%</div></div>`);
+    if (growth) metricsCards.push(`<div class="metric-cell"><div class="metric-label">Growth ×</div><div class="metric-val ${growth >= 2 ? 'val-red' : 'val-green'}">${growth.toFixed(2)}×</div></div>`);
+  }
+
+  const hypotheses = (a.root_cause_hypothesis || []).map(h => `<li>${h}</li>`).join('');
+  const actionsHTML = buildActions(a.recommended_actions || [], a.target_ip);
+  const sparkHTML = buildSparkline(samples);
+  const etaClass  = isEtaDanger ? '' : 'safe';
+  const etaIcon   = isEtaDanger ? 'ti-alert-triangle' : 'ti-check';
+  const etaLabel  = isEtaDanger ? `Critical ETA: ${trend.eta_critical}` : 'No critical trend detected';
+  const mountStr  = a.mountpoint ? ` · ${a.mountpoint}` : '';
+  const simTag     = '';
+
+  const canRecheck = a.alert_id && a.status !== 'RECOVERED' && !a.is_recovery;
+  const recheckCount = a.recheck_count ? ` (×${a.recheck_count})` : '';
+  const lastRecheck  = a.recheck_at
+    ? `Last recheck: ${a.recheck_at.slice(11,19)} UTC · val=${a.last_recheck_val ?? '?'}%`
+    : '';
+
+  panel.innerHTML = `
+    ${recoveryBanner}
+    <div class="sev-banner ${color}">
+      <div class="sev-score" style="color:var(--${color === 'green' ? 'green' : color === 'yellow' ? 'yellow' : color === 'orange' ? 'orange' : 'red'})">${score}</div>
+      <div class="sev-info">
+        <div class="sev-label">${label}</div>
+        <div class="sev-host">${a.host || 'Unknown'} · ${a.target_ip || ''}${mountStr}</div>
+        <div class="sev-decision">${(a.decision || '').replace(/_/g,' ')}</div>
+        ${lastRecheck ? `<div style="font-size:10px;color:var(--muted);margin-top:4px;">${lastRecheck}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <div class="tag-row" style="justify-content:flex-end;">${simTag}<span class="tag">${a.alert_type || '?'}</span></div>
+        <div style="font-size:10px;color:var(--muted);text-align:right;">${a.timestamp || ''}</div>
+        ${canRecheck ? `<button class="recheck-btn" id="recheck-btn" onclick="doRecheck('${a.alert_id}')">
+          ⟳ Recheck${recheckCount}
+        </button>` : ''}
+      </div>
+    </div>
+    <div id="recheck-result-area"></div>
+
+    ${metricsCards.length ? `<div class="card">
+      <div class="card-title"><i class="ti ti-chart-bar" aria-hidden="true"></i> Live metrics</div>
+      <div class="metrics-row">${metricsCards.join('')}</div>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-trending-up" aria-hidden="true"></i> Trend — 7 day window</div>
+      ${sparkHTML}
+      <div class="trend-row" style="margin-top:12px;">
+        <span class="trend-badge">${trend.direction || '—'}</span>
+        ${trend.slope_per_hour !== undefined ? `<span style="font-size:11px;color:var(--muted);">+${trend.slope_per_hour}/h</span>` : ''}
+        <div class="eta-box ${etaClass}"><i class="ti ${etaIcon}" aria-hidden="true"></i> ${etaLabel}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-stethoscope" aria-hidden="true"></i> Diagnosis</div>
+      <p class="diagnosis-text">${a.diagnosis || 'No diagnosis available.'}</p>
+    </div>
+
+    ${hypotheses ? `<div class="card">
+      <div class="card-title"><i class="ti ti-bulb" aria-hidden="true"></i> Root cause hypotheses</div>
+      <ul class="hyp-list">${hypotheses}</ul>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-terminal" aria-hidden="true"></i> Recommended actions — click command to copy</div>
+      ${actionsHTML}
+    </div>
+  `;
+}
+
+function showRecoveryToast(host, type, mountpoint) {
+  const existing = document.getElementById('recovery-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'recovery-toast';
+  const mnt = mountpoint ? ` ${mountpoint}` : '';
+  toast.innerHTML = `<span style="color:var(--green);font-size:14px;">✓</span> ${host} ${type}${mnt} recovered`;
+  toast.style.cssText = [
+    'position:fixed','bottom:20px','right:20px','z-index:9999',
+    'background:var(--bg2)','border:1px solid rgba(63,185,80,.5)',
+    'border-radius:8px','padding:10px 16px','font-size:12px',
+    'color:var(--text)','box-shadow:0 2px 8px rgba(0,0,0,.4)',
+    'transition:opacity .5s','opacity:0'
+  ].join(';');
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.style.opacity = '1');
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 600);
+  }, 4000);
+}
+
+let lastSeenIds     = new Set();
+// Map: alert_id → { timeoutId, intervalId } for the 10s removal countdown
+const recoveryTimers = new Map();
+// Set of alert_ids that have been locally removed — ignore if server sends them back
+const removedIds = new Set();
+
+// Called when an alert transitions to RECOVERED (from any source)
+function scheduleRemoveFromFeed(alertId) {
+  if (recoveryTimers.has(alertId)) return;   // already scheduled
+
+  const DELAY_MS    = 10000;
+  const TICK_MS     = 1000;
+  let   remaining   = DELAY_MS / TICK_MS;    // 10 ticks
+
+  // Tick every second to update the countdown pill in the list item
+  const intervalId = setInterval(() => {
+    remaining--;
+    const pill = document.getElementById(`cd-${alertId}`);
+    if (pill) pill.textContent = `removing in ${remaining}s`;
+    if (remaining <= 0) clearInterval(intervalId);
+  }, TICK_MS);
+
+  // After 10s: animate out, then splice from alerts array
+  const timeoutId = setTimeout(() => {
+    clearInterval(intervalId);
+    recoveryTimers.delete(alertId);
+
+    // Find and animate the list item
+    const idx  = alerts.findIndex(a => a.alert_id === alertId);
+    const items = document.querySelectorAll('.alert-item');
+    if (idx !== -1 && items[idx]) {
+      items[idx].classList.add('fading-out');
+    }
+
+    // After CSS transition finishes, remove from array and re-render
+    setTimeout(() => {
+      const removeIdx = alerts.findIndex(a => a.alert_id === alertId);
+      if (removeIdx === -1) return;
+
+      // Mark as permanently removed — ignore if server sends it back
+      if (alerts[removeIdx] && alerts[removeIdx].alert_id) {
+        removedIds.add(alerts[removeIdx].alert_id);
+      }
+      alerts.splice(removeIdx, 1);
+
+      // Adjust selectedIdx
+      if (selectedIdx === removeIdx) {
+        selectedIdx = alerts.length > 0 ? Math.min(removeIdx, alerts.length - 1) : null;
+        if (selectedIdx !== null) renderDetail(alerts[selectedIdx]);
+        else document.getElementById('detail-panel').innerHTML =
+          '<div class="empty-state"><i class="ti ti-check" aria-hidden="true"></i><p>All alerts resolved</p></div>';
+      } else if (selectedIdx > removeIdx) {
+        selectedIdx--;
+      }
+      renderAlertList();
+    }, 900);   // matches CSS transition duration
+  }, DELAY_MS);
+
+  recoveryTimers.set(alertId, { timeoutId, intervalId });
+}
+
+async function pollHistory() {
+  try {
+    const r = await fetch(`${API}/api/history?limit=50`, {signal: AbortSignal.timeout(4000)});
+    if (r.ok) {
+      const data = await r.json();
+      if (data.length) {
+        // ── Detect newly appeared RECOVERY events → toast ─────────────
+        data.forEach(a => {
+          const uid = a.alert_id || a.timestamp;
+          if (a.is_recovery && !lastSeenIds.has(uid)) {
+            showRecoveryToast(a.host, a.alert_type, a.mountpoint);
+          }
+          if (uid) lastSeenIds.add(uid);
+        });
+
+        // ── Track which alerts just became RECOVERED this poll ─────────
+        const prevById = new Map(alerts.map(a => [a.alert_id, a.status]));
+
+        const prevSel = selectedIdx !== null ? alerts[selectedIdx] : null;
+        // Filter out alerts that were already removed locally — even if server still has them
+        alerts = data.filter(a => !a.alert_id || !removedIds.has(a.alert_id));
+
+        alerts.forEach(a => {
+          if (
+            a.status === 'RECOVERED' &&
+            a.alert_id &&
+            prevById.get(a.alert_id) !== 'RECOVERED' &&
+            !recoveryTimers.has(a.alert_id)
+          ) {
+            scheduleRemoveFromFeed(a.alert_id);
+          }
+        });
+
+        // ── Re-sync selectedIdx after data refresh ────────────────────
+        if (prevSel && prevSel.alert_id) {
+          const newIdx = alerts.findIndex(a => a.alert_id === prevSel.alert_id);
+          if (newIdx !== -1) {
+            selectedIdx = newIdx;
+            if (alerts[newIdx].status === 'RECOVERED') renderDetail(alerts[newIdx]);
+          }
+        }
+
+        renderAlertList();
+        if (selectedIdx === null && alerts.length) { selectedIdx = 0; renderDetail(alerts[0]); }
+      }
+      document.getElementById('status-badge').textContent = '● AGENT ONLINE';
+      document.getElementById('status-badge').className   = 'badge';
+    }
+  } catch(e) {
+    document.getElementById('status-badge').textContent = '● OFFLINE — DEMO MODE';
+    document.getElementById('status-badge').className   = 'badge warn';
+  }
+}
+
+pollHistory();
+setInterval(pollHistory, 15000);
+
+async function doRecheck(alertId) {
+  const btn  = document.getElementById('recheck-btn');
+  const area = document.getElementById('recheck-result-area');
+  if (!btn || !area) return;
+
+  btn.disabled  = true;
+  btn.textContent = '⟳ Checking...';
+  btn.classList.add('spinning');
+  area.innerHTML = '';
+
+  try {
+    const r = await fetch(`${API}/api/recheck`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ alert_id: alertId }),
+    });
+    const data = await r.json();
+    const verdict = data.verdict || '';
+
+    if (verdict === 'RECOVERED') {
+      area.innerHTML = `<div class="recheck-result ok">
+        ✓ RECOVERED — metric hiện tại <strong>${data.current_val}%</strong>
+        (dưới ngưỡng ${data.threshold}%) · sẽ xóa khỏi feed sau 10s
+      </div>`;
+      // Sync server state first
+      await pollHistory();
+      // Trigger 10s removal countdown immediately (don't wait for next poll)
+      if (data.alert_id && !recoveryTimers.has(data.alert_id)) {
+        scheduleRemoveFromFeed(data.alert_id);
+      }
+      if (selectedIdx !== null) renderDetail(alerts[selectedIdx]);
+
+    } else if (verdict === 'STILL_ALERTING') {
+      const sev    = data.new_severity || {};
+      const sevCol = sev.color === 'red' ? 'warn' : sev.color === 'orange' ? 'warn' : 'err';
+      area.innerHTML = `<div class="recheck-result warn">
+        ⚠ Still alerting — metric <strong>${data.current_val}%</strong>
+        (ngưỡng recovery: &lt; ${data.threshold}%) · score ${sev.score || '?'}/100
+      </div>`;
+      // Refresh detail panel to show updated diagnosis + recheck count
+      await pollHistory();
+      if (selectedIdx !== null) renderDetail(alerts[selectedIdx]);
+
+    } else if (verdict === 'GRAFANA_UNREACHABLE') {
+      area.innerHTML = `<div class="recheck-result err">
+        ⚠ Grafana offline — không lấy được metric. Thử lại sau.
+      </div>`;
+
+    } else {
+      area.innerHTML = `<div class="recheck-result err">
+        ${data.message || 'Unknown response'}
+      </div>`;
+    }
+
+  } catch (e) {
+    area.innerHTML = `<div class="recheck-result err">
+      ✕ Agent offline — không thể recheck (${e.message})
+    </div>`;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('spinning');
+      const count = alerts[selectedIdx]?.recheck_count || '';
+      btn.textContent = `⟳ Recheck${count ? ' (×'+count+')' : ''}`;
+    }
+  }
+}
+</script>
+</body>
+</html>

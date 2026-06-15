@@ -1,0 +1,5 @@
+{"Nagios Alert":"Nagios: web-prod-01 Host: web-prod-01 Address: 10.50.1.60 CPU load is CRITICAL: 15min load 12.50 at 4 CPUs"}
+{"Nagios Alert":"Notification Type: PROBLEM Service: fs_/ Host: claw-a-thon-team-8-60 Address: 10.50.1.60 State: CRITICAL Date/Time: Wed May 13 20:55:11 ICT 2026 Additional Info: CRIT - 99.8% used (440.89 of 441.9 GB), (levels at 95.00/98.00%), trend: +225.77GB / 24 hours"}
+{"Nagios Alert":"Notification Type: PROBLEM Host: db-prod-01 Address: 10.50.1.60 State: DOWN Date/Time: Sun Jun 14 15:00:00 ICT 2026 Additional Info: PING CRITICAL - Packet loss = 100%"}
+{"Nagios Alert":"Notification Type: PROBLEM Service: Memory used WARN Host: db-prod-01 Address: 10.50.1.60 State: WARNING Date/Time: Sun Jun 14 15:00:00 ICT 2026 Additional Info: Memory used this is 87.5%"}
+

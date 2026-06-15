@@ -1,0 +1,36 @@
+# ==============================================================================
+# Docker Compose
+# Chạy: docker compose up -d
+# Logs: docker compose logs -f
+# Stop: docker compose down
+# ==============================================================================
+
+services:
+  sre-agent:
+    build: .
+    container_name: sre-agent
+    restart: unless-stopped
+
+    # Load tất cả config từ .env file
+    env_file:
+      - .env
+
+    ports:
+      # HOST_PORT:CONTAINER_PORT
+      # Thay 5000 bên trái nếu muốn đổi port trên máy host
+      - "5000:5000"
+
+    # Health check — docker sẽ tự restart nếu agent chết
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Giới hạn tài nguyên (tuỳ chỉnh theo máy)
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
