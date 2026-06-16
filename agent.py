@@ -832,8 +832,14 @@ def nagios_webhook():
 def get_history():
     limit = min(int(request.args.get("limit", 50)), 100)
     inc_re = request.args.get("include_recovered", "1") != "0"
-    feed = [a for a in alert_history if not a.get("is_recovery") and a.get("status") != "ignored"
-            and (inc_re or a.get("status") != "RECOVERED")]
+    feed = [
+        a for a in alert_history
+        if not a.get("is_recovery")
+        and a.get("status") != "ignored"
+        and a.get("status") != "failed"       # ← thêm dòng này
+        and a.get("alert_type")               # ← phải có alert_type
+        and (inc_re or a.get("status") != "RECOVERED")
+    ]
     return jsonify(feed[:limit]), 200
 
 @app.route("/api/simulate", methods=["POST"])

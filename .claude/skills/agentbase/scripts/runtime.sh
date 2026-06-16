@@ -24,10 +24,11 @@ read_env_file() {
     echo "ERROR: Env file not found: $env_file" >&2
     return 1
   fi
-  # Read non-empty, non-comment lines as KEY=VALUE pairs
+  # Read non-empty, non-comment lines as KEY=VALUE pairs.
+  # Support optional "export " prefix and quoted values.
   jq -Rn '[inputs | select(test("^\\s*#") | not) | select(length > 0) |
-    capture("^(?<key>[^=]+)=(?<val>.*)$")] |
-    map({(.key): .val}) | add // {}' < "$env_file"
+    capture("^(?:export\\s+)?(?<key>[^=]+)=(?<val>.*)$")] |
+    map({(.key): (.val | gsub("^\\\"|\\\"$"; "") | gsub("^\\s+|\\s+$"; ""))}) | add // {}' < "$env_file"
 }
 
 # Parse common log flags and output JSON body
