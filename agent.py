@@ -842,6 +842,13 @@ def get_history():
     ]
     return jsonify(feed[:limit]), 200
 
+@app.route("/api/reset", methods=["POST"])
+def reset_history():
+    alert_history.clear()
+    active_alerts.clear()
+    recoveryTimers_count = 0
+    return jsonify({"status": "ok", "message": "Alert history cleared."}), 200
+
 @app.route("/api/simulate", methods=["POST"])
 def simulate_alert():
     body = request.get_json() or {}

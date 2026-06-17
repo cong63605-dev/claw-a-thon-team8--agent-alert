@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(bash *)",
-      "Bash(ls /home/tuanlna/projects/ 2>/dev/null && echo \"---\" && ls /home/tuanlna/projects/my-agent/ 2>/dev/null || echo \"my-agent dir is empty\")"
+      "Bash(ls /home/tuanlna/projects/ 2>/dev/null && echo \"---\" && ls /home/tuanlna/projects/my-agent/ 2>/dev/null || echo \"my-agent dir is empty\")",
+      "Bash(ls /home/tuanlna/)",
+      "PowerShell(wsl -d Ubuntu -e bash -c \"cd /home/tuanlna/zalopay-monitoring && docker compose build --no-cache 2>&1 | tail -10\")",
+      "Bash(wsl -d Ubuntu curl -s \"http://localhost:9090/api/v1/query?query=100-\\(node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes*100\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(wsl -d Ubuntu bash -c 'curl -s '\\\\''http://localhost:9090/api/v1/query?query=100-\\(node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes*100\\)'\\\\'' | python3 -c \" *)"
     ]
   }
 }
